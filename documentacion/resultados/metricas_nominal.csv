@@ -1,0 +1,7 @@
+metrica,sin_coord,onda_verde,adaptativo
+demora_prom_s,96.8,39.1,29.9
+velocidad_kmh,24.7,35.3,38.0
+pct_detenido,28.9,16.8,10.8
+paradas_por_veh,2.56,0.99,0.67
+throughput_veh_h,535.0,585.0,598.0
+indice_coordinacion,26.0,67.0,78.0
