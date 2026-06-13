@@ -62,7 +62,7 @@ namespace OndaVerde
     public class PhaseGroup
     {
 
-        public const float CLOCK0 = 24f;
+        public const float CLOCK0 = 0f;
 
         public string id;
         public float greenStart, greenDur, yellow, allred, cycle, offset;

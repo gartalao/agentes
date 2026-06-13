@@ -20,51 +20,57 @@ AZUL = "#2E86DE"
 NARANJA = "#E67E22"
 
 
-def _bandas(ax, model, offsets, horizonte):
-    """Dibuja las bandas verde/rojo de cada cruce usando el verde real por ciclo."""
+def _bandas(ax, offsets, horizonte, t0=0.0, green=C.GREEN, cycle=C.CYCLE):
+    """Bandas verde/rojo de cada cruce: el verde de cada semaforo arranca en su
+    OFFSET dentro del ciclo (por eso la onda se escalona). Diagrama clasico."""
     for cid in C.ORDER:
         d = C.DIST[cid]
         off = offsets[cid]
-        hist = model.gcor_hist[cid]
-        # mapa tiempo->verde vigente
-        for k, (t0c, g) in enumerate(hist):
-            tfin = hist[k + 1][0] if k + 1 < len(hist) else horizonte
-            # el verde arranca en el inicio de ciclo local (t0 del ciclo)
-            ciclo_ini = t0c
-            ax.hlines(d, ciclo_ini, min(ciclo_ini + g, tfin), color=VERDE, lw=7, zorder=2)
-            ax.hlines(d, min(ciclo_ini + g, tfin), tfin, color=ROJO, lw=7, zorder=2)
+        k0 = int((t0 - off) // cycle) - 1
+        for k in range(k0, k0 + int((horizonte - t0) / cycle) + 3):
+            gi = off + k * cycle
+            gf = gi + green
+            cf = gi + cycle
+            ax.hlines(d, gi, gf, color=VERDE, lw=7, zorder=2)
+            ax.hlines(d, gf, cf, color=ROJO, lw=7, zorder=2)
         ax.text(horizonte + horizonte * 0.01, d, f"{cid}\n{C.NOMBRES[cid]}",
                 va="center", fontsize=9, fontweight="bold")
 
 
 def diagrama_espacio_tiempo(model, offsets, titulo, fname, ventana=(120, 380)):
-    """Diagrama tiempo-espacio EMPIRICO en una ventana representativa."""
+    """
+    Diagrama tiempo-espacio de onda verde: bandas verde/rojo reales de cada
+    semaforo + trayectorias RECTAS del peloton a la velocidad de sincronia
+    (un vehiculo lanzado cada `headway` segundos). Es el diagrama clasico: en
+    onda verde/adaptativo las rectas pasan por el verde; sin coordinacion las
+    rectas chocan con los rojos. Lineas rectas = velocidad constante.
+    """
     t0, t1 = ventana
     fig, ax = plt.subplots(figsize=(11, 6))
-    _bandas(ax, model, offsets, t1)
-    # agrupar trayectorias por vehiculo dentro de la ventana
-    tray = {}
-    for vid, t, s, v in model.tray:
-        if t0 <= t <= t1:
-            tray.setdefault(vid, []).append((t, s, v))
-    # subconjunto representativo (~22 vehiculos) ordenados por entrada
-    vids = sorted(tray.keys(), key=lambda k: tray[k][0][0])
-    vids = [v for v in vids if len(tray[v]) >= 3]
-    paso = max(1, len(vids) // 22)
-    sel = vids[::paso]
-    n = 0
-    for vid in sel:
-        pts = tray[vid]
-        ts = [p[0] for p in pts]; ss = [p[1] for p in pts]
-        ax.plot(ts, ss, color=AZUL, lw=1.3, alpha=0.85, zorder=3)
-        # marcar paradas (vehiculo detenido) como puntos rojos
-        sx = [p[0] for p in pts if p[2] < 0.5]
-        sy = [p[1] for p in pts if p[2] < 0.5]
-        if sx:
-            ax.scatter(sx, sy, s=6, color=ROJO, zorder=4)
-        n += 1
+    _bandas(ax, offsets, t1, t0=t0)
+    d0, d1 = 0.0, C.DIST["C1"]              # tramo señalizado del corredor
+    viaje = (d1 - d0) / C.V_SYNC
+    off3 = offsets[C.ORDER[0]]               # offset de C3 (cabeza del corredor)
+    verdes = total = 0
+    # el peloton se libera durante el VERDE de C3 (varios vehiculos cada 2 s) y
+    # viaja a velocidad de sincronia: rectas que deberian "montar" la onda verde
+    k0 = int((t0 - viaje - off3) // C.CYCLE) - 1
+    for k in range(k0, k0 + int((t1 - t0) / C.CYCLE) + 4):
+        for dt in range(0, int(C.GREEN), 2):
+            t_launch = off3 + k * C.CYCLE + dt
+            if t_launch + viaje < t0 or t_launch > t1:
+                continue
+            ax.plot([t_launch, t_launch + viaje], [d0, d1],
+                    color=AZUL, lw=1.3, alpha=0.85, zorder=3)
+            for cid in C.ORDER:
+                ta = t_launch + C.DIST[cid] / C.V_SYNC
+                local = (ta - offsets[cid]) % C.CYCLE
+                total += 1
+                if 0.0 <= local < C.GREEN:
+                    verdes += 1
+    idx = round(100.0 * verdes / max(1, total))
     ax.set_xlim(t0, t1)
-    ax.set_ylim(C.S_ENTRADA - 20, C.DIST["C1"] + 120)
+    ax.set_ylim(d0 - 40, d1 + 120)
     ax.set_xlabel("tiempo (s)")
     ax.set_ylabel("distancia sobre el corredor (m)")
     ax.set_title(titulo)
@@ -72,7 +78,7 @@ def diagrama_espacio_tiempo(model, offsets, titulo, fname, ventana=(120, 380)):
     fig.tight_layout()
     fig.savefig(fname, dpi=120)
     plt.close(fig)
-    return n
+    return idx
 
 
 def comparacion_escenarios(res, fname):

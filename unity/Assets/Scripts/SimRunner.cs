@@ -7,7 +7,7 @@ namespace OndaVerde
     {
         [Header("Modo de coordinacion")]
         public SimMode mode = SimMode.Fixed;
-        public Escenario escenario = Escenario.OndaVerde;
+        public Escenario escenario = Escenario.Adaptativo;
         public int seed = 7;
 
         [Header("Carros (Car, car2, coupe, patricio, daniel, bus, truck)")]
@@ -46,33 +46,14 @@ namespace OndaVerde
             Debug.Log($"[SimRunner] red lista: {world.links.Count} links, {world.connectors.Count} conectores, {world.controllers.Count} controladores, escenario {escenario}");
         }
 
-        public void CambiarEscenario(Escenario e)
-        {
-            escenario = e;
-            if (world != null) world.AplicarEscenario(e);
-            Debug.Log($"[SimRunner] escenario -> {e}");
-        }
-
-        void Update()
-        {
-            if (Input.GetKeyDown(KeyCode.Alpha1)) CambiarEscenario(Escenario.SinCoord);
-            else if (Input.GetKeyDown(KeyCode.Alpha2)) CambiarEscenario(Escenario.OndaVerde);
-            else if (Input.GetKeyDown(KeyCode.Alpha3)) CambiarEscenario(Escenario.Adaptativo);
-        }
-
-        static readonly string[] ESC_NOM = { "1) Sin coordinacion", "2) Onda verde", "3) Adaptativo (Q-learning)" };
-
         void OnGUI()
         {
             var st = new GUIStyle(GUI.skin.label) { fontSize = 16, fontStyle = FontStyle.Bold };
             st.normal.textColor = Color.white;
             GUI.color = new Color(0f, 0f, 0f, 0.45f);
-            GUI.DrawTexture(new Rect(14, 70, 340, 52), Texture2D.whiteTexture);
+            GUI.DrawTexture(new Rect(14, 70, 360, 34), Texture2D.whiteTexture);
             GUI.color = Color.white;
-            GUI.Label(new Rect(24, 76, 330, 22), "Control: " + ESC_NOM[(int)escenario], st);
-            var sub = new GUIStyle(GUI.skin.label) { fontSize = 12 };
-            sub.normal.textColor = Color.white;
-            GUI.Label(new Rect(24, 100, 330, 20), "teclas 1 / 2 / 3 para cambiar de estrategia", sub);
+            GUI.Label(new Rect(24, 76, 350, 22), "Control adaptativo (Q-learning)", st);
         }
 
         public static void StripFx(GameObject go)
