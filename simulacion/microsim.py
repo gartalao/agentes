@@ -46,6 +46,9 @@ def usable():
 class VehiculoAgente(ap.Agent):
     def setup(self):
         self.s = C.S_ENTRADA           # posicion sobre el corredor (m)
+        self.s_spawn = C.S_ENTRADA     # punto donde entro al corredor (m)
+        self.carril = "lateral"        # 'express' (deprimido) o 'lateral' (a nivel)
+        self.cruces_sujeto = list(C.ORDER)  # cruces que tiene por delante
         self.v = C.V_SYNC * 0.7        # velocidad inicial (m/s)
         self.v0 = C.V_SYNC             # velocidad deseada (m/s)
         self.estado = "circulando"
@@ -115,6 +118,10 @@ class CorredorModel(ap.Model):
             sem.g_cor = C.GREEN
         self.vehiculos = ap.AgentList(self, 0, VehiculoAgente)
         self._spawn_acc = 0.0
+        # incorporaciones locales: trafico que entra al corredor en cada cruce
+        # (vueltas y laterales que se suman a Gomez Morin en cada interseccion)
+        self.lambda_merge = self.p.get("lambda_merge", {c: 0.0 for c in C.ORDER})
+        self._merge_acc = {c: 0.0 for c in C.ORDER}
         self.rng = np.random.default_rng(self.p.get("seed", 7))
         # registros
         self.tray = []          # (id, t, s) trayectorias para el diagrama
@@ -130,16 +137,36 @@ class CorredorModel(ap.Model):
         self.gcor_hist = {c: [] for c in C.ORDER}  # (t_inicio_ciclo, verde_corredor)
         self._next_id = 0
 
+    # ---------- alta de vehiculos al corredor ----------
+    def _nuevo_vehiculo(self, pos, carril="lateral"):
+        v = VehiculoAgente(self)
+        v.s = pos
+        v.s_spawn = pos
+        v.carril = carril
+        # cruces que lo pueden detener: los que tiene por delante; el express va
+        # por el deprimido y NO se detiene en los pasos a desnivel (C1, C3)
+        v.cruces_sujeto = [c for c in C.ORDER if C.DIST[c] > pos - 1.0
+                           and not (carril == "express" and c in C.UNDERPASS)]
+        v.id_num = self._next_id
+        self._next_id += 1
+        self.vehiculos.append(v)
+        return v
+
+    # ---------- cola del corredor en un acceso (detector, en vivo) ----------
+    def _cola_corredor(self, sem):
+        q = 0
+        for v in self.vehiculos:
+            if v.salio or sem.cid not in v.cruces_sujeto:
+                continue
+            d = sem.pos - v.s
+            if 0.0 <= d <= DET_ZONE and v.v < V_STOP:
+                q += 1
+        return q
+
     # ---------- sensado (detectores tipo camara/sensor) ----------
     def sensar(self):
         for sem in self.semaforos:
-            q = 0
-            for v in self.vehiculos:
-                if v.salio:
-                    continue
-                d = sem.pos - v.s
-                if 0.0 <= d <= DET_ZONE and v.v < V_STOP:
-                    q += 1
+            q = self._cola_corredor(sem)
             sem.q_cor = q
             sem.q_cor_acc += q
             sem.q_tr_acc += sem.q_tr
@@ -176,28 +203,39 @@ class CorredorModel(ap.Model):
                 sem.gcor_hist_local = sem.g_cor
                 self.gcor_hist[sem.cid].append((t, sem.g_cor))
 
-        # 2) llegadas Poisson al acceso del corredor
+        # 2) llegadas Poisson al acceso del corredor (entran por C3)
         self._spawn_acc += self.lambda_in * self.dt
         while self._spawn_acc >= 1.0:
             self._spawn_acc -= 1.0
-            v = VehiculoAgente(self)
-            v.id_num = self._next_id
-            self._next_id += 1
-            self.vehiculos.append(v)
+            carril = "express" if self.rng.random() < C.EXPRESS_FRAC else "lateral"
+            self._nuevo_vehiculo(C.S_ENTRADA, carril)
 
-        # 3) transversal: llegadas y descarga (cola por cruce)
+        # 2b) incorporaciones locales del corredor en cada cruce (laterales y
+        # vueltas que entran a Gomez Morin a nivel justo aguas arriba del cruce)
+        for sem in self.semaforos:
+            self._merge_acc[sem.cid] += self.lambda_merge.get(sem.cid, 0.0) * self.dt
+            while self._merge_acc[sem.cid] >= 1.0:
+                self._merge_acc[sem.cid] -= 1.0
+                self._nuevo_vehiculo(sem.pos - 0.85 * DET_ZONE, "lateral")
+
+        # 3) transversal: llegadas y descarga (cola por cruce) + registro de la
+        # cola del corredor EN VIVO (cuenta de detenidos en el detector)
         for sem in self.semaforos:
             sem.q_tr += self.rng.poisson(sem.lambda_tr * self.dt)
             if sem.transversal_en_verde(t):
                 sem.q_tr = max(0.0, sem.q_tr - SAT_FLOW * self.dt)
-            self.qcor_hist[sem.cid].append(sem.q_cor)
+            self.qcor_hist[sem.cid].append(self._cola_corredor(sem))
             self.qtr_hist[sem.cid].append(sem.q_tr)
 
         # 4) vehiculos del corredor: IDM + respeto de semaforo (nunca en rojo)
         vivos = [v for v in self.vehiculos if not v.salio]
         vivos.sort(key=lambda x: x.s, reverse=True)  # lider primero
-        for i, v in enumerate(vivos):
-            lead = vivos[i - 1] if i > 0 else None
+        lider_carril = {}   # ultimo vehiculo visto por carril = lider del siguiente
+        for v in vivos:
+            # el lider es el vehiculo de ADELANTE en el MISMO carril: asi el
+            # express del deprimido no se frena tras una lateral detenida
+            lead = lider_carril.get(v.carril)
+            lider_carril[v.carril] = v
             # restriccion del lider
             if lead is not None:
                 gap = lead.s - v.s - VEH_LEN
@@ -249,6 +287,8 @@ class CorredorModel(ap.Model):
         best = None
         bd = 1e9
         for sem in self.semaforos:
+            if sem.cid not in v.cruces_sujeto:
+                continue
             d = sem.pos - v.s
             if -1.0 < d < bd:
                 bd = d
@@ -258,15 +298,16 @@ class CorredorModel(ap.Model):
     def _finish(self, v):
         v.salio = True
         self.salidas += 1
-        dist = C.S_SALIDA - C.S_ENTRADA
-        free_t = dist / v.v0
+        # demora respecto al tiempo libre de SU recorrido (desde donde entro)
+        free_t = (C.S_SALIDA - v.s_spawn) / v.v0
         delay = max(0.0, (self.t_now - v.t_spawn) - free_t)
         self.delays.append(delay)
         self.paradas_veh.append(v.paradas)
-        # cruces atravesados en verde (sin detenerse) de los 3
-        verdes = len(C.ORDER) - len(v.paradas_en)
+        # cruces que tenia por delante y atraveso en verde (sin detenerse)
+        n = len(v.cruces_sujeto)
+        verdes = n - len(v.paradas_en & set(v.cruces_sujeto))
         self.cruces_verde += verdes
-        self.cruces_total += len(C.ORDER)
+        self.cruces_total += n
 
     def update(self):
         self.t_now += self.dt

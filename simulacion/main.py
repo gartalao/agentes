@@ -16,13 +16,17 @@ from . import control, metricas, graficas, exportar
 from .microsim import CorredorModel
 
 LAMBDA_TR = {"C3": 0.12, "C2": 0.18, "C1": 0.14}
+# trafico del corredor que se incorpora en cada cruce (veh/s). Magnolia (C2) es
+# el cruce A NIVEL donde converge mas demanda local -> el mas cargado; en los
+# pasos a desnivel (C1, C3) la incorporacion a nivel es menor.
+LAMBDA_MERGE = {"C3": 0.04, "C2": 0.10, "C1": 0.04}
 
 
 def _correr(modo, policy=None, lam=C.DEMANDA["base"], steps=1600, seed=7):
     esc = "sin_coord" if modo == "sin_coord" else "onda_verde"
     offs = control.offsets_por_escenario(esc)
     p = {"modo": modo, "offsets": offs, "lambda_in": lam, "policy": policy,
-         "seed": seed, "lambda_tr": LAMBDA_TR}
+         "seed": seed, "lambda_tr": LAMBDA_TR, "lambda_merge": LAMBDA_MERGE}
     m = CorredorModel(p)
     m.run(steps=steps, display=False)
     return m

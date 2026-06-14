@@ -7,7 +7,7 @@ namespace OndaVerde
     {
         [Header("Modo de coordinacion")]
         public SimMode mode = SimMode.Fixed;
-        public Escenario escenario = Escenario.Adaptativo;
+        public Escenario escenario = Escenario.Adaptativo;  // unico modo: Q-learning en lazo cerrado
         public int seed = 7;
 
         [Header("Carros (Car, car2, coupe, patricio, daniel, bus, truck)")]
@@ -39,8 +39,8 @@ namespace OndaVerde
             var net = NetworkModel.LoadNet();
             if (net == null) { enabled = false; return; }
             world = NetworkModel.Build(net, mode, seed);
-            world.plan = PlanControl.Load();
-            world.AplicarEscenario(escenario);
+            world.plan = PlanControl.Load();      // planes + politica de Python (JSON)
+            world.AplicarEscenario(escenario);    // fija offsets y reparto del escenario
             world.WarmUp();
             if (logging) metrics = new MetricsLogger(escenario.ToString());
             Debug.Log($"[SimRunner] red lista: {world.links.Count} links, {world.connectors.Count} conectores, {world.controllers.Count} controladores, escenario {escenario}");
@@ -72,7 +72,8 @@ namespace OndaVerde
 
         static Bounds BodyBounds(GameObject go)
         {
-
+            // junk flat planes (ground/shadow quads) inflate the model bounds and
+            // shrink the whole car: measure the body only
             var rends = go.GetComponentsInChildren<Renderer>(true);
             Bounds b = default; bool first = true;
             foreach (var r in rends)
@@ -136,14 +137,15 @@ namespace OndaVerde
             float yaw = carYaw.TryGetValue(veh.id, out var yv) ? yv : 0f;
             float lift = carLift.TryGetValue(veh.id, out var lv) ? lv : 0f;
             Vector3 p = g.At(veh.s);
-
+            // never let a car sit below the road surface (connectors carry flat z);
+            // long bodies on ramps: sample NOSE and TAIL too, take the highest
             Vector3 tn0 = g.Tangent(veh.s);
             float half = veh.length * 0.5f;
             float ry = Mathf.Max(RoadProfile.RoadY(p.x, p.z),
                 Mathf.Max(RoadProfile.RoadY(p.x + tn0.x * half, p.z + tn0.z * half),
                           RoadProfile.RoadY(p.x - tn0.x * half, p.z - tn0.z * half)));
             if (p.y < ry) p.y = ry;
-
+            // the lid ring rides 0.12 above grade: keep surface cars flush with it
             if (p.y > -0.5f) p.y = Mathf.Max(p.y, RoadProfile.LidY(p.x, p.z) + 0.02f);
             Vector3 tan = g.Tangent(veh.s);
             Vector3 tanF = new Vector3(tan.x, tan.y * 0.35f, tan.z);

@@ -28,6 +28,13 @@ ORDER = ["C3", "C2", "C1"]
 NOMBRES = {"C3": "Alfonso Reyes", "C2": "Magnolia", "C1": "Av. del Roble"}
 DIST = {"C3": 0.0, "C2": 725.0, "C1": 1170.0}   # m sobre el corredor
 
+# Av. del Roble (C1) y Alfonso Reyes (C3) son PASOS A DESNIVEL: el flujo express
+# del corredor pasa por el deprimido sin detenerse y solo las laterales se
+# sujetan al semaforo. Magnolia (C2) es un cruce A NIVEL donde TODO el corredor
+# se detiene, por lo que concentra la mayor cola (cuello de botella).
+UNDERPASS = {"C1", "C3"}
+EXPRESS_FRAC = 0.6   # proporcion del corredor que va por el deprimido
+
 # tramos entre cruces (m) y tiempos de viaje a velocidad de sincronia (s)
 def tramos():
     d = [DIST[c] for c in ORDER]

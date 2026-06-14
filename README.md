@@ -47,8 +47,9 @@ agentes/
    Alternativamente, desde la raíz del repo: `python -m simulacion.main`, que
    regenera las gráficas, las métricas y `plan_control.json`.
 2. **Ver la simulación (Unity)**: abrir `unity/` con Unity `6000.4.6f1`, cargar
-   `Assets/Scenes/Corridor.unity` y presionar Play. Con las teclas **1 / 2 / 3**
-   se conmuta entre sin coordinación, onda verde y adaptativo.
+   `Assets/Scenes/Corridor.unity` y presionar Play. Los tres cruces corren el
+   control adaptativo (Q-learning) en lazo cerrado; la comparación de las tres
+   estrategias vive en el modelo de Python (notebook y reporte).
 3. Guía completa en [`documentacion/instalacion.md`](documentacion/instalacion.md).
 
 ## Qué hay en la simulación
@@ -68,11 +69,11 @@ agentes/
 
 | Estrategia | Demora | Velocidad | Paradas/veh | Coordinación |
 |---|---|---|---|---|
-| Sin coordinación | 96.8 s | 24.7 km/h | 2.56 | 26 % |
-| Onda verde | 39.1 s | 35.3 km/h | 0.99 | 67 % |
-| Adaptativo (Q-learning) | 29.9 s | 38.0 km/h | 0.67 | 78 % |
+| Sin coordinación | 62.3 s | 30.1 km/h | 1.36 | 38 % |
+| Onda verde | 36.7 s | 36.0 km/h | 0.70 | 64 % |
+| Adaptativo (Q-learning) | 25.8 s | 39.3 km/h | 0.49 | 73 % |
 
-Coordinar reduce la demora 60 % frente a no coordinar; el control adaptativo la
-reduce otro 24 % y, en hora pico, eleva el throughput 19 %. El ancho de banda de
-la onda verde pasa de 8.2 s (sin coordinar) a 45.9 s (100 % del verde). Detalles
+Coordinar reduce la demora 41 % frente a no coordinar; el control adaptativo la
+reduce otro 30 % y, en hora pico, eleva el throughput atendido. El ancho de banda
+de la onda verde pasa de 8.2 s (sin coordinar) a 45.9 s (100 % del verde). Detalles
 en `documentacion/resultados/` y en el reporte técnico.

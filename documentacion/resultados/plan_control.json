@@ -732,149 +732,149 @@
   "resultados_referencia": {
     "nominal": {
       "sin_coord": {
-        "demora_prom_s": 96.8,
-        "velocidad_kmh": 24.7,
+        "demora_prom_s": 62.3,
+        "velocidad_kmh": 30.1,
         "pct_detenido": 28.9,
-        "paradas_por_veh": 2.56,
-        "throughput_veh_h": 535.0,
-        "vehiculos_salidos": 119,
-        "indice_coordinacion": 26.0,
+        "paradas_por_veh": 1.36,
+        "throughput_veh_h": 1115.0,
+        "vehiculos_salidos": 248,
+        "indice_coordinacion": 38.0,
         "cola_prom_corredor": {
-          "C3": 8.0,
-          "C2": 10.6,
-          "C1": 9.2
+          "C3": 1.1,
+          "C2": 4.8,
+          "C1": 4.9
         },
         "cola_prom_transversal": {
-          "C3": 2.7,
-          "C2": 4.6,
-          "C1": 2.9
+          "C3": 2.4,
+          "C2": 5.2,
+          "C1": 3.5
         },
         "cola_max": {
-          "C3": 14.0,
-          "C2": 14.0,
-          "C1": 13.0
+          "C3": 8.0,
+          "C2": 20.0,
+          "C1": 15.0
         }
       },
       "onda_verde": {
-        "demora_prom_s": 39.1,
-        "velocidad_kmh": 35.3,
-        "pct_detenido": 16.8,
-        "paradas_por_veh": 0.99,
-        "throughput_veh_h": 585.0,
-        "vehiculos_salidos": 130,
-        "indice_coordinacion": 67.0,
+        "demora_prom_s": 36.7,
+        "velocidad_kmh": 36.0,
+        "pct_detenido": 15.6,
+        "paradas_por_veh": 0.7,
+        "throughput_veh_h": 1151.0,
+        "vehiculos_salidos": 256,
+        "indice_coordinacion": 64.0,
         "cola_prom_corredor": {
-          "C3": 8.0,
-          "C2": 0.0,
-          "C1": 0.0
+          "C3": 1.1,
+          "C2": 2.3,
+          "C1": 2.5
         },
         "cola_prom_transversal": {
-          "C3": 2.7,
-          "C2": 4.1,
-          "C1": 2.9
+          "C3": 2.4,
+          "C2": 4.6,
+          "C1": 3.5
         },
         "cola_max": {
-          "C3": 14.0,
+          "C3": 8.0,
           "C2": 15.0,
-          "C1": 8.0
+          "C1": 13.0
         }
       },
       "adaptativo": {
-        "demora_prom_s": 29.9,
-        "velocidad_kmh": 38.0,
-        "pct_detenido": 10.8,
-        "paradas_por_veh": 0.67,
-        "throughput_veh_h": 598.0,
-        "vehiculos_salidos": 133,
-        "indice_coordinacion": 78.0,
+        "demora_prom_s": 25.8,
+        "velocidad_kmh": 39.3,
+        "pct_detenido": 11.4,
+        "paradas_por_veh": 0.49,
+        "throughput_veh_h": 1174.0,
+        "vehiculos_salidos": 261,
+        "indice_coordinacion": 73.0,
         "cola_prom_corredor": {
-          "C3": 6.2,
-          "C2": 0.0,
-          "C1": 0.0
+          "C3": 0.8,
+          "C2": 2.7,
+          "C1": 0.5
         },
         "cola_prom_transversal": {
-          "C3": 4.4,
-          "C2": 4.1,
-          "C1": 3.6
+          "C3": 3.5,
+          "C2": 4.6,
+          "C1": 5.0
         },
         "cola_max": {
-          "C3": 14.0,
+          "C3": 11.0,
           "C2": 15.0,
-          "C1": 11.0
+          "C1": 17.0
         }
       }
     },
     "alta_demanda": {
       "sin_coord": {
-        "demora_prom_s": 190.2,
-        "velocidad_kmh": 16.6,
-        "pct_detenido": 67.6,
-        "paradas_por_veh": 3.0,
-        "throughput_veh_h": 558.0,
-        "vehiculos_salidos": 124,
-        "indice_coordinacion": 22.0,
+        "demora_prom_s": 72.1,
+        "velocidad_kmh": 28.3,
+        "pct_detenido": 32.2,
+        "paradas_por_veh": 1.47,
+        "throughput_veh_h": 1336.0,
+        "vehiculos_salidos": 297,
+        "indice_coordinacion": 33.0,
         "cola_prom_corredor": {
-          "C3": 46.3,
-          "C2": 11.1,
-          "C1": 9.7
+          "C3": 2.1,
+          "C2": 7.4,
+          "C1": 5.2
         },
         "cola_prom_transversal": {
-          "C3": 2.7,
-          "C2": 4.6,
-          "C1": 2.9
+          "C3": 2.0,
+          "C2": 5.1,
+          "C1": 3.4
         },
         "cola_max": {
-          "C3": 90.0,
-          "C2": 14.0,
-          "C1": 13.0
+          "C3": 10.0,
+          "C2": 26.0,
+          "C1": 15.0
         }
       },
       "onda_verde": {
-        "demora_prom_s": 142.3,
-        "velocidad_kmh": 19.9,
-        "pct_detenido": 68.4,
-        "paradas_por_veh": 1.41,
-        "throughput_veh_h": 607.0,
-        "vehiculos_salidos": 135,
-        "indice_coordinacion": 63.0,
+        "demora_prom_s": 48.5,
+        "velocidad_kmh": 33.0,
+        "pct_detenido": 22.5,
+        "paradas_por_veh": 1.0,
+        "throughput_veh_h": 1367.0,
+        "vehiculos_salidos": 304,
+        "indice_coordinacion": 52.0,
         "cola_prom_corredor": {
-          "C3": 46.3,
-          "C2": 0.0,
-          "C1": 0.0
+          "C3": 2.1,
+          "C2": 5.4,
+          "C1": 3.6
         },
         "cola_prom_transversal": {
-          "C3": 2.7,
-          "C2": 4.1,
-          "C1": 2.9
+          "C3": 2.0,
+          "C2": 5.1,
+          "C1": 3.5
         },
         "cola_max": {
-          "C3": 90.0,
-          "C2": 15.0,
-          "C1": 8.0
+          "C3": 10.0,
+          "C2": 26.0,
+          "C1": 14.0
         }
       },
       "adaptativo": {
-        "demora_prom_s": 111.2,
-        "velocidad_kmh": 22.9,
-        "pct_detenido": 55.0,
-        "paradas_por_veh": 1.43,
-        "throughput_veh_h": 724.0,
-        "vehiculos_salidos": 161,
-        "indice_coordinacion": 61.0,
+        "demora_prom_s": 37.5,
+        "velocidad_kmh": 35.8,
+        "pct_detenido": 19.1,
+        "paradas_por_veh": 0.79,
+        "throughput_veh_h": 1435.0,
+        "vehiculos_salidos": 319,
+        "indice_coordinacion": 62.0,
         "cola_prom_corredor": {
-          "C3": 33.1,
-          "C2": 0.0,
-          "C1": 0.0
+          "C3": 0.9,
+          "C2": 6.5,
+          "C1": 0.4
         },
         "cola_prom_transversal": {
-          "C3": 4.4,
-          "C2": 4.1,
-          "C1": 3.6
+          "C3": 2.9,
+          "C2": 5.1,
+          "C1": 5.3
         },
         "cola_max": {
-          "C3": 63.0,
-          "C2": 15.0,
-          "C1": 11.0
+          "C3": 10.0,
+          "C2": 26.0,
+          "C1": 14.0
         }
       }
     },

@@ -5,7 +5,7 @@ namespace OndaVerde
 {
     public enum SignalState { Red, Yellow, Green }
     public enum SimMode { Fixed, Responsive }
-
+    // estrategias de control comparadas (conmutables en Play)
     public enum Escenario { SinCoord, OndaVerde, Adaptativo }
 
     public class Polyline
@@ -61,7 +61,10 @@ namespace OndaVerde
 
     public class PhaseGroup
     {
-
+        // SUBTRACTING the offset makes the platoon released at C3 meet every
+        // downstream green northbound (C3 -> C2 -> C1), exactly like the
+        // notebook's time-space diagram. CLOCK0 = 0: the cycle starts at the
+        // beginning of green (sin arranque adelantado).
         public const float CLOCK0 = 0f;
 
         public string id;
@@ -95,12 +98,14 @@ namespace OndaVerde
         public float baseMainDur, baseCrossDur;
         public PhaseGroup Group(string g) { return (g != null && groups.TryGetValue(g, out var p)) ? p : null; }
 
+        // fija el desfase de coordinacion del cruce (reloj comun + offset)
         public void SetOffset(float o)
         {
             offset = o;
             foreach (var kv in groups) kv.Value.offset = o;
         }
 
+        // restablece el reparto de verde base (GM vs transversal) del plan fijo
         public void ResetVerde(float verdeGM)
         {
             var gm = Group("GM_through"); var cr = Group("CROSS");
@@ -185,12 +190,14 @@ namespace OndaVerde
         public int spawnedTotal, finishedTotal;
         public float delaySumGM, delaySumCross;
         public int delayNGM, delayNCross;
-        public int redViolations;
+        public int redViolations;   // auditoria: vehiculos que cruzan en rojo (debe ser 0)
         float lastStamp = -1f;
 
+        // escenario activo y plan de control (de Python via plan_control.json)
         public Escenario escenario = Escenario.OndaVerde;
         public PlanControl plan;
 
+        // Buick (index 3) is out of rotation: the provided model is a plain box
         static readonly int[] FLEET = { 0, 1, 2, 5, 4, 2, 4, 5, 0, 6, 2, 4, 0, 7, 5, 6 };
 
         public SimWorld(SimMode m, int seed, float v) { mode = m; rng = new System.Random(seed); V = v; }
@@ -199,6 +206,9 @@ namespace OndaVerde
 
         static float Mod(float t, float c) { t %= c; if (t < 0) t += c; return t; }
 
+        // aplica un escenario: fija los offsets de coordinacion y el reparto base.
+        // SinCoord -> offset 0 (cada semaforo aislado); OndaVerde/Adaptativo ->
+        // offsets = distancia / velocidad (del plan de Python).
         public void AplicarEscenario(Escenario e)
         {
             escenario = e;
@@ -213,6 +223,10 @@ namespace OndaVerde
             }
         }
 
+        // CONTROL ADAPTATIVO en lazo cerrado: cada cruce usa lo que SENSA en sus
+        // detectores (qMain del corredor, qCross de la transversal) y consulta la
+        // politica aprendida por Q-learning para fijar su verde. No hay tiempos
+        // preprogramados: decide en vivo, como un sistema desplegable real.
         void AdaptiveUpdate()
         {
             if (plan == null) return;
@@ -235,7 +249,7 @@ namespace OndaVerde
         {
             time += dt;
             UpdateQueues();
-
+            // el control adaptativo decide al inicio de cada ciclo con lo sensado
             if (escenario == Escenario.Adaptativo)
             {
                 float stamp = Mathf.Floor(time / 90f);
@@ -288,7 +302,8 @@ namespace OndaVerde
                 if (i + 1 < vs.Count) { var ld = vs[i + 1]; gap = ld.s - veh.s - ld.length; leadV = ld.v; }
                 if (lk != null)
                 {
-
+                    // a car that just branched onto a connector is still physically on
+                    // this carriageway for its first meters: keep following it
                     foreach (var dn in lk.downstream)
                         foreach (var v2 in dn.vehicles)
                         {
@@ -298,7 +313,7 @@ namespace OndaVerde
                         }
                 }
                 float a = veh.Accel(gap, leadV);
-                bool mustStop = false; float stopLineS = 0f;
+                bool mustStop = false; float stopLineS = 0f;  // garantia dura anti-rojo
 
                 if (lk != null)
                 {
@@ -308,7 +323,9 @@ namespace OndaVerde
                         if (ss != SignalState.Green)
                         {
                             float sgap = ctrlS - veh.s - SimVehicle.S0;
-
+                            // regla de zona de dilema: en ROJO siempre se detiene;
+                            // en AMARILLO se detiene si alcanza a frenar comodo, y
+                            // solo sigue (para librar) si ya NO puede frenar a tiempo
                             float brake = (veh.v * veh.v) / (2f * SimVehicle.B);
                             bool stop = (ss == SignalState.Red) || (brake <= sgap);
                             if (stop)
@@ -319,14 +336,18 @@ namespace OndaVerde
                         }
                         else if (veh.s < ctrlS && leadV < 0.5f && gap < 9999f)
                         {
-
+                            // box blocking: hold at the line if stopping room past the box is taken
                             float stopAt = veh.s + gap;
                             if (stopAt > ctrlS - 2f && stopAt < ctrlS + 60f)
                                 a = Mathf.Min(a, veh.Accel(Mathf.Max(0.4f, ctrlS - veh.s - SimVehicle.S0), 0f));
                         }
                         if (veh.s < ctrlS && veh.chosen != null && veh.chosen.branchS > ctrlS)
                         {
-
+                            // do not LEAVE the stop line into the box unless you FIT
+                            // between the crossing zone (stop+18m) and the branch: a
+                            // TURN-POCKET queue may never back up across the crossing
+                            // lanes (only cars heading to the SAME connector count:
+                            // through traffic clears the box on its own)
                             int inBox = 0;
                             foreach (var o in lk.vehicles)
                                 if (o != veh && o.s > ctrlS && o.chosen == veh.chosen) inBox++;
@@ -335,15 +356,16 @@ namespace OndaVerde
                                 a = Mathf.Min(a, veh.Accel(Mathf.Max(0.4f, ctrlS - veh.s - SimVehicle.S0), 0f));
                         }
                     }
-
+                    // give-way connectors hold capacity (one car per 24m) AND need
+                    // every crossing-conflict point clear: queues wait on the link
                     if (veh.chosen != null && veh.chosen.control == "give_way" && veh.s < veh.chosen.branchS
                         && (veh.chosen.vehicles.Count >= ConnCap(veh.chosen) || !CrossingClear(veh.chosen, veh.waited)))
                     {
                         a = Mathf.Min(a, veh.Accel(Mathf.Max(0.4f, veh.chosen.branchS - veh.s - SimVehicle.S0), 0f));
-
+                        // patience builds while held at the yield even before the wall
                         if (veh.v < 0.5f && veh.chosen.branchS - veh.s < 12f) veh.waited += dt;
                     }
-
+                    // yield to a car already mid-crossing at a conflict point ahead
                     foreach (var g in lk.crossGuards)
                     {
                         if (g.sL < veh.s + 1f || g.sL > veh.s + 60f) continue;
@@ -358,7 +380,9 @@ namespace OndaVerde
                 a = Mathf.Clamp(a, -8f, SimVehicle.A);
                 veh.v = Mathf.Max(0f, veh.v + a * dt);
                 float adv = veh.v * dt;
-
+                // GARANTIA DURA: un vehiculo jamas rebasa la linea de alto cuando
+                // su semaforo no le da paso (lo que el car-following no logre, esto
+                // lo impide). Asi, cero avances en rojo.
                 if (mustStop)
                 {
                     float limite = stopLineS - 0.5f;
@@ -370,9 +394,10 @@ namespace OndaVerde
                 }
                 veh.s += adv;
                 veh.dist += adv;
-                if (mustStop && veh.s > stopLineS + 0.1f) redViolations++;
+                if (mustStop && veh.s > stopLineS + 0.1f) redViolations++;  // auditoria
             }
-
+            // positional backstop: whatever the car-following missed, two bodies
+            // on the same segment can NEVER overlap
             for (int i = vs.Count - 2; i >= 0; i--)
             {
                 var ld = vs[i + 1]; var vb = vs[i];
@@ -391,7 +416,9 @@ namespace OndaVerde
                 {
                     if (veh.chosen != null && veh.chosen.branchS < st.s - 0.5f) continue;
                     best = st.s;
-
+                    // a car heading to a PHASED turn obeys its own arrow at the
+                    // stop line (otherwise it waits the through-red during its
+                    // protected window and the turn starves forever)
                     ph = (veh.chosen != null && veh.chosen.phase != null) ? veh.chosen.phase : st.phase;
                 }
             }
@@ -416,10 +443,14 @@ namespace OndaVerde
                     if (veh.chosen != null)
                     {
                         var cn = veh.chosen;
-
+                        // hard wall: a car NEVER enters a full connector, a
+                        // conflicted give-way, or a box whose exit is taken
+                        // (do-not-block-the-box); late arrivals queue SPACED
+                        // behind the line, never stacked
                         bool full = cn.vehicles.Count >= ConnCap(cn);
                         bool exitTaken = cn.to != null && Occupied(cn.to, cn.mergeS, cn);
-
+                        // a car still at the connector MOUTH means the branch point
+                        // is occupied: entering now would stack two bodies there
                         bool mouthBusy = false;
                         foreach (var o in cn.vehicles)
                             if (o.s < o.length + 2.0f) { mouthBusy = true; break; }
@@ -429,7 +460,8 @@ namespace OndaVerde
                         if (full || exitTaken || mouthBusy || (cn.control == "give_way" && !CrossingClear(cn, veh.waited)))
                         {
                             veh.waited += 0.05f;
-
+                            // walk the queue from the line BACKWARD (descending s)
+                            // so the wall only ever moves back, never re-advances
                             float wall = exitS - 0.05f;
                             for (int q = lk.vehicles.Count - 1; q >= 0; q--)
                             {
@@ -465,7 +497,12 @@ namespace OndaVerde
                     if (nl == null) { cn.vehicles.RemoveAt(i); veh.done = true; finishedTotal++; continue; }
                     if (cn.control != "through" && veh.waited < 60f && (Occupied(nl, cn.mergeS, cn) || LandingBlocked(nl, cn, veh)))
                     {
-
+                        // hold in a spaced queue along the connector, pulled BACK from the
+                        // merge point so the waiting car never sits on top of merged traffic.
+                        // NEVER despawn mid-box: after 60s the car forces a tight merge
+                        // (the landing clamp below keeps spacing)
+                        // spacing by REAL vehicle lengths: a fixed 7m pitch made
+                        // 10m buses interpenetrate in the hold queue
                         float aheadLen = 0f;
                         foreach (var o in cn.vehicles)
                             if (o != veh && (o.s > veh.s + 0.01f || (Mathf.Abs(o.s - veh.s) <= 0.01f && o.id < veh.id)))
@@ -479,7 +516,8 @@ namespace OndaVerde
                     cn.vehicles.RemoveAt(i);
                     veh.conn = null; veh.link = nl;
                     veh.s = cn.mergeS + Mathf.Max(0f, veh.s - cn.geom.length);
-
+                    // landing clamp: pull back behind any car already ahead (the
+                    // car behind was excluded by LandingBlocked before merging)
                     foreach (var o in nl.vehicles)
                         if (o.s >= veh.s - 0.5f && o.s - veh.s < o.length + 0.4f)
                             veh.s = Mathf.Max(0f, o.s - o.length - 0.4f);
@@ -491,13 +529,13 @@ namespace OndaVerde
 
         static int ConnCap(SimConnector cn)
         {
-
+            // a ~43m U-turn box holds 3 queued cars, like the real thing
             return Mathf.Max(1, (int)(cn.geom.length / 12f));
         }
 
         static bool LandingBlocked(SimLink nl, SimConnector cn, SimVehicle veh)
         {
-
+            // where would this car land? it may not bury its tail in the car behind
             float land = cn.mergeS + Mathf.Max(0f, veh.s - cn.geom.length);
             foreach (var o in nl.vehicles)
                 if (o.s >= land - 0.5f && o.s - land < o.length + 0.4f)
@@ -510,22 +548,31 @@ namespace OndaVerde
 
         bool CrossingClear(SimConnector cn, float patience = 0f)
         {
-
+            // phased crossings must also FIT in the remaining green: a car that
+            // enters late is still mid-box when opposing traffic launches
+            // only the CONFLICT zone (first ~45m) must fit in the remaining green,
+            // not the long exit tail of extended sink connectors
             if (cn.phase != null && cn.phase.GreenRemaining(time) < 2.5f + Mathf.Min(cn.geom.length, 45f) / 6f)
             { cn.dbgBlockGreen++; return false; }
-
+            // a stopped car just short of the point will not invade it (queues
+            // hold behind their own stop lines); keep the static window tight or
+            // a permanent cross-street queue deadlocks the U-turn forever
             float staticWin = cn.phase != null ? 2.8f : 5.0f;
             foreach (var cp in cn.crossPts)
             {
-
+                // time the entering car needs to REACH then CLEAR this point,
+                // accelerating from the branch line (~6 m/s average)
                 float tNeed = 2.2f + Mathf.Min(cp.sC, 22f) / 6f;
-
+                // a driver waiting long at the yield accepts tighter gaps,
+                // like real retorno behavior (never below the static window)
                 if (patience > 15f) tNeed *= 0.5f;
                 foreach (var v in cp.lk.vehicles)
                 {
                     float d = cp.sL - v.s;
                     if (d <= -4f || d >= Mathf.Max(staticWin, v.v * tNeed)) continue;
-
+                    // a RED light between that car and the conflict point holds it
+                    // there: it can never reach the crossing during our protected
+                    // window (THIS is what lets phased turns actually flow)
                     bool held = false;
                     foreach (var st in cp.lk.stops)
                         if (st.s > v.s - 0.5f && st.s < cp.sL && st.phase.State(time) != SignalState.Green)
@@ -541,7 +588,8 @@ namespace OndaVerde
         {
             foreach (var v in lk.vehicles)
                 if (v.s - s > -5f && v.s - s < 7f) return true;
-
+            // vehicles about to land from a sibling connector merging nearby:
+            // without this two merges 2m apart can drop cars onto each other
             foreach (var cn in connectors)
             {
                 if (cn == self || cn.to != lk) continue;
@@ -563,7 +611,8 @@ namespace OndaVerde
 
         void ChooseExit(SimVehicle veh, SimLink lk)
         {
-
+            // only exits still AHEAD of the car are valid: choosing a branch the
+            // car already passed teleports it backward at transfer time
             veh.chosen = null;
             var opts = new List<SimConnector>();
             foreach (var c in lk.downstream)
@@ -598,7 +647,7 @@ namespace OndaVerde
                 while (lk.spawnAccum >= 1f)
                 {
                     lk.spawnAccum -= 1f;
-
+                    // queue spill gate: a jammed entry swallows demand instead of dumping bursts
                     int jam = 0;
                     foreach (var v in lk.vehicles) if (v.s < 30f && v.v < 1f) jam++;
                     if (jam >= 3) { lk.spawnAccum = 0f; break; }
@@ -612,7 +661,7 @@ namespace OndaVerde
 
         float Demand(SimLink lk)
         {
-
+            // the documented experiment is a demand peak on the C3 transversal only
             if (lk.kind == "cross" && lk.id.StartsWith("C3/") && time >= 140f && time <= 320f) return 1.8f;
             return 1f;
         }
@@ -642,7 +691,7 @@ namespace OndaVerde
                     float s = s0 + (float)(rng.NextDouble() * 14);
                     if (s > lk.geom.length - 12f) continue;
                     bool blocked = false;
-
+                    // never seed inside a junction box or on a crossing-conflict point
                     foreach (var st in lk.stops) if (s > st.s - 2f && s < st.s + 30f) { blocked = true; break; }
                     if (!blocked)
                         foreach (var g in lk.crossGuards) if (Mathf.Abs(s - g.sL) < 14f) { blocked = true; break; }

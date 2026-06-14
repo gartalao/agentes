@@ -106,22 +106,41 @@ def comparacion_escenarios(res, fname):
     plt.close(fig)
 
 
+def _suavizar(q, dt, ventana_s=20.0):
+    """Media movil corta para legibilidad (sin alterar la tendencia)."""
+    q = np.asarray(q, dtype=float)
+    w = max(1, int(ventana_s / dt))
+    if w <= 1 or len(q) < w:
+        return q
+    k = np.ones(w) / w
+    return np.convolve(q, k, mode="same")
+
+
 def colas_tiempo(models, fname):
-    """Longitud de cola en el corredor por cruce a lo largo del tiempo."""
+    """Longitud de cola del corredor por cruce a lo largo del tiempo.
+
+    Serie EMPIRICA: en cada paso se cuenta cuantos vehiculos del corredor estan
+    detenidos en la zona de detector de cada cruce, para las 3 estrategias. La
+    cola sube en rojo y baja en verde; con coordinacion el peloton llega en
+    verde y la cola promedio es menor."""
     fig, axes = plt.subplots(1, 3, figsize=(13, 4), sharey=True)
     nombres = {"sin_coord": "Sin coordinacion", "onda_verde": "Onda verde",
                "adaptativo": "Adaptativo"}
     col = {"sin_coord": "#95A5A6", "onda_verde": VERDE, "adaptativo": AZUL}
+    # se dibuja sin_coord primero y onda verde al final para que la onda verde
+    # (estrategia central del estudio) quede siempre visible al frente
+    lw = {"sin_coord": 1.6, "adaptativo": 1.4, "onda_verde": 1.7}
     for ax, cid in zip(axes, C.ORDER):
-        for modo, m in models.items():
-            q = m.qcor_hist[cid]
+        for modo in ("sin_coord", "adaptativo", "onda_verde"):
+            m = models[modo]
+            q = _suavizar(m.qcor_hist[cid], m.dt)
             tt = np.arange(len(q)) * m.dt
-            ax.plot(tt, q, label=nombres[modo], color=col[modo], lw=1.4)
+            ax.plot(tt, q, label=nombres[modo], color=col[modo], lw=lw[modo], alpha=0.9)
         ax.set_title(f"{cid} - {C.NOMBRES[cid]}")
         ax.set_xlabel("tiempo (s)")
         ax.grid(True, alpha=0.3)
     axes[0].set_ylabel("cola en el corredor (veh)")
-    axes[0].legend(fontsize=8)
+    axes[0].legend(fontsize=8, loc="upper left")
     fig.suptitle("Longitud de cola por cruce", fontweight="bold")
     fig.tight_layout()
     fig.savefig(fname, dpi=120)
