@@ -76,4 +76,4 @@ agentes/
 Coordinar reduce la demora 41 % frente a no coordinar; el control adaptativo la
 reduce otro 30 % y, en hora pico, eleva el throughput atendido. El ancho de banda
 de la onda verde pasa de 8.2 s (sin coordinar) a 45.9 s (100 % del verde). Detalles
-en `documentacion/resultados/` y en el reporte técnico.
+en `documentacion/resultados/`.

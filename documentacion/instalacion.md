@@ -58,5 +58,3 @@ Custom Package*) y abrir `Assets/Scenes/Corridor.unity`.
   comparativa de métricas, convergencia de Q-learning, colas por cruce,
   sensibilidad a la velocidad, los CSV de métricas y `plan_control.json`.
 - `documentacion/capturas/`: capturas de la escena en Unity.
-- `documentacion/Reporte_Tecnico_OndaVerde.docx`: reporte técnico final.
-- `documentacion/Presentacion_Final_OndaVerde.pptx`: presentación final.
